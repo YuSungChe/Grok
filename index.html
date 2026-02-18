@@ -48,18 +48,18 @@
                 <canvas id="bigRoad" width="720" height="300" class="bg-zinc-950 rounded-2xl mx-auto block"></canvas>
                 
                 <div class="mt-6 text-xs text-gray-400 text-center">
-                    大眼仔路 / 小路 / 蟑螂路 已內建 • 點擊莊/閒/和立即新增
+                    大眼仔路 / 小路 / 蟑螂路 已內建 • 已升級為進階預測模式
                 </div>
             </div>
         </div>
 
+        <!-- 進階預測區 -->
         <div class="mt-8 bg-gradient-to-br from-purple-900 to-indigo-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
-                <span>🔮 AI 精準預測</span>
-                <button onclick="showPrediction()" class="text-sm bg-white/20 px-5 py-2 rounded-full">🔄 立即重新預測</button>
+                <span>🔮 進階 AI 預測（20筆以上啟用）</span>
+                <button onclick="showPrediction()" class="text-sm bg-white/20 px-5 py-2 rounded-full">🔄 重新計算</button>
             </h2>
-            <div id="prediction" class="text-3xl font-bold text-center min-h-[140px] flex items-center justify-center"></div>
-            <div id="stats" class="mt-6 text-center text-sm text-gray-300"></div>
+            <div id="prediction" class="text-center min-h-[200px]"></div>
         </div>
     </div>
 
@@ -123,58 +123,39 @@
             const canvas = document.getElementById('bigRoad');
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             const cell = 48;
             const maxCols = Math.floor(canvas.width / cell);
-            let col = -1;
-            let row = 0;
-            let lastWinner = null;
+            let col = -1, row = 0, lastWinner = null;
             
             history.forEach(h => {
                 if (h.winner === 'T') {
                     if (col >= 0) {
-                        const tieX = col * cell + 24;
-                        const tieY = row * cell + 55;
                         ctx.fillStyle = '#22c55e';
                         ctx.font = 'bold 16px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText('和', tieX, tieY);
+                        ctx.fillText('和', col*cell + 24, row*cell + 55);
                     }
                     return;
                 }
-                
                 if (lastWinner === null || h.winner !== lastWinner || row >= 6) {
                     col++;
                     row = 0;
                 }
                 if (col >= maxCols) return;
-                
                 const x = col * cell + 6;
                 const y = row * cell + 6;
-                
                 ctx.fillStyle = h.winner === 'B' ? '#ef4444' : '#3b82f6';
-                ctx.beginPath();
-                ctx.arc(x + 18, y + 18, 18, 0, Math.PI * 2);
-                ctx.fill();
-                
+                ctx.beginPath(); ctx.arc(x + 18, y + 18, 18, 0, Math.PI * 2); ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = 'bold 22px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText(h.winner === 'B' ? '莊' : '閒', x + 18, y + 27);
-                
                 if (h.bPair) {
-                    ctx.fillStyle = '#b91c1c';
-                    ctx.beginPath();
-                    ctx.arc(x + 30, y + 30, 7, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.arc(x + 30, y + 30, 7, 0, Math.PI * 2); ctx.fill();
                 }
                 if (h.pPair) {
-                    ctx.fillStyle = '#1e40af';
-                    ctx.beginPath();
-                    ctx.arc(x + 6, y + 30, 7, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillStyle = '#1e40af'; ctx.beginPath(); ctx.arc(x + 6, y + 30, 7, 0, Math.PI * 2); ctx.fill();
                 }
-                
                 lastWinner = h.winner;
                 row++;
             });
@@ -182,27 +163,22 @@
 
         function updateStats() {
             if (history.length === 0) {
-                document.getElementById('stats').innerHTML = '尚無資料，請開始記錄';
+                document.getElementById('stats') && (document.getElementById('stats').innerHTML = '尚無資料');
                 return;
             }
-            const b = history.filter(h => h.winner === 'B').length;
-            const p = history.filter(h => h.winner === 'P').length;
-            const t = history.filter(h => h.winner === 'T').length;
-            const total = history.length;
-            document.getElementById('stats').innerHTML = `
-                總手數 ${total}　｜　莊勝率 ${(b/total*100).toFixed(1)}%　｜　閒勝率 ${(p/total*100).toFixed(1)}%　｜　和局 ${(t/total*100).toFixed(1)}%
-            `;
         }
 
         function showPrediction() {
             const predDiv = document.getElementById('prediction');
-            if (history.length < 4) {
-                predDiv.innerHTML = `<span class="text-yellow-300">請先輸入 4 筆以上，AI 才會開始學習預測</span>`;
+            if (history.length < 20) {
+                predDiv.innerHTML = `<span class="text-yellow-300 text-xl">需要累積 20 筆以上資料<br>目前只有 ${history.length} 筆<br>繼續新增開牌即可啟用進階預測</span>`;
                 return;
             }
-            
-            const seqLen = 4;
+
+            const seqLen = 8;  // 使用最後 8 筆做序列匹配（更重視前面資料）
             const lastSeq = history.slice(-seqLen).map(h => h.winner);
+
+            // 1. 序列匹配
             let candidates = [];
             for (let i = 0; i < history.length - seqLen; i++) {
                 const slice = history.slice(i, i + seqLen).map(h => h.winner);
@@ -210,35 +186,74 @@
                     candidates.push(history[i + seqLen].winner);
                 }
             }
-            
-            let pred, prob;
+
+            let seqPred = 'T', seqProb = 33.3;
             if (candidates.length > 0) {
-                const count = {};
-                candidates.forEach(c => count[c] = (count[c] || 0) + 1);
-                pred = Object.keys(count).reduce((a, b) => count[a] > count[b] ? a : b);
-                prob = (count[pred] / candidates.length * 100).toFixed(1);
-            } else {
                 const count = {B:0, P:0, T:0};
-                history.forEach(h => count[h.winner]++);
-                pred = Object.keys(count).reduce((a, b) => count[a] > count[b] ? a : b);
-                prob = (count[pred] / history.length * 100).toFixed(1);
+                candidates.forEach(c => count[c]++);
+                const total = candidates.length;
+                seqPred = Object.keys(count).reduce((a,b) => count[a] > count[b] ? a : b);
+                seqProb = (count[seqPred] / total * 100);
             }
-            
-            const name = pred === 'B' ? '莊勝' : pred === 'P' ? '閒勝' : '和局';
-            let pairText = '';
-            if (pred !== 'T') {
-                const sameHands = history.filter(h => h.winner === pred);
-                const bPairRate = sameHands.length ? (sameHands.filter(h => h.bPair).length / sameHands.length * 100) : 0;
-                const pPairRate = sameHands.length ? (sameHands.filter(h => h.pPair).length / sameHands.length * 100) : 0;
-                pairText = `<br><span class="text-lg">莊對 ${bPairRate.toFixed(1)}%　｜　閒對 ${pPairRate.toFixed(1)}%　｜　任意對 ${((bPairRate + pPairRate)/2).toFixed(1)}%</span>`;
-            }
-            
-            predDiv.innerHTML = `
-                <div class="text-5xl mb-3">${name}</div>
-                <div class="text-3xl text-yellow-300">機率 ${prob}%</div>
-                ${pairText}
-                <div class="text-xs mt-8 text-gray-400">已自動學習 ${history.length} 筆樣本，越用越準</div>
+
+            // 2. 近期趨勢 (最後10筆)
+            const recent = history.slice(-10);
+            const rb = recent.filter(h => h.winner === 'B').length;
+            const rp = recent.filter(h => h.winner === 'P').length;
+            const recentPred = rb > rp ? 'B' : rp > rb ? 'P' : 'T';
+            const recentProb = Math.max(rb, rp) / 10 * 100;
+
+            // 3. 對子傾向
+            const bHands = history.filter(h => h.winner === 'B');
+            const pHands = history.filter(h => h.winner === 'P');
+            const bPairRate = bHands.length ? bHands.filter(h => h.bPair).length / bHands.length * 100 : 0;
+            const pPairRate = pHands.length ? pHands.filter(h => h.pPair).length / pHands.length * 100 : 0;
+
+            // 4. 整體勝率
+            const totalB = history.filter(h => h.winner === 'B').length;
+            const totalP = history.filter(h => h.winner === 'P').length;
+            const overallPred = totalB > totalP ? 'B' : 'P';
+
+            // 綜合分數
+            let scoreB = 0, scoreP = 0, scoreT = 0;
+            if (seqPred === 'B') scoreB += seqProb * 0.5;
+            else if (seqPred === 'P') scoreP += seqProb * 0.5;
+            else scoreT += seqProb * 0.5;
+
+            if (recentPred === 'B') scoreB += recentProb * 0.3;
+            else if (recentPred === 'P') scoreP += recentProb * 0.3;
+
+            if (overallPred === 'B') scoreB += 20;
+            else scoreP += 20;
+
+            const finalPred = scoreB > scoreP ? 'B' : scoreP > scoreB ? 'P' : 'T';
+            const finalName = finalPred === 'B' ? '莊勝' : finalPred === 'P' ? '閒勝' : '和局';
+
+            // 顯示結果
+            let html = `
+                <div class="text-5xl mb-2">${finalName}</div>
+                <div class="text-3xl text-yellow-300 mb-6">綜合推薦機率 ${Math.max(scoreB, scoreP, scoreT).toFixed(0)}%</div>
+                
+                <div class="grid grid-cols-1 gap-4 text-left max-w-md mx-auto">
+                    <div class="bg-white/10 p-4 rounded-2xl">
+                        <div class="font-bold">序列匹配（最後8筆）</div>
+                        <div>${seqPred === 'B' ? '🟥莊勝' : seqPred === 'P' ? '🟦閒勝' : '🟩和局'} ${seqProb.toFixed(1)}% （找到 ${candidates.length} 次匹配）</div>
+                    </div>
+                    <div class="bg-white/10 p-4 rounded-2xl">
+                        <div class="font-bold">近期趨勢（最後10筆）</div>
+                        <div>${recentPred === 'B' ? '🟥莊勝' : recentPred === 'P' ? '🟦閒勝' : '🟩和局'} ${recentProb.toFixed(1)}%</div>
+                    </div>
+                    <div class="bg-white/10 p-4 rounded-2xl">
+                        <div class="font-bold">對子傾向</div>
+                        <div>莊對出現率 ${bPairRate.toFixed(1)}%　｜　閒對出現率 ${pPairRate.toFixed(1)}%</div>
+                    </div>
+                </div>
+                
+                <div class="text-xs mt-8 text-gray-400">
+                    已自動學習 ${history.length} 筆樣本 • 此為參考工具，非保證
+                </div>
             `;
+            predDiv.innerHTML = html;
         }
 
         loadData();
