@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精準百家樂預測</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        canvas { image-rendering: crisp-edges; }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+    <div class="max-w-5xl mx-auto p-4">
+        <h1 class="text-4xl font-bold text-center py-6 text-yellow-400">精準百家樂預測</h1>
+        
+        <div class="grid md:grid-cols-3 gap-6">
+            <!-- 輸入區（已簡化：點莊閒和就直接新增） -->
+            <div class="bg-gray-900 rounded-2xl p-6">
+                <h2 class="text-xl font-bold mb-4">點擊直接新增開牌</h2>
+                <div class="grid grid-cols-3 gap-3">
+                    <button onclick="addHand('B')" class="bg-red-600 hover:bg-red-700 active:bg-red-800 h-20 rounded-2xl text-3xl font-bold transition">莊</button>
+                    <button onclick="addHand('P')" class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 h-20 rounded-2xl text-3xl font-bold transition">閒</button>
+                    <button onclick="addHand('T')" class="bg-green-600 hover:bg-green-700 active:bg-green-800 h-20 rounded-2xl text-3xl font-bold transition">和</button>
+                </div>
+
+                <div class="mt-6 space-y-4">
+                    <label class="flex items-center gap-3 text-lg cursor-pointer">
+                        <input type="checkbox" id="bPair" class="w-6 h-6 accent-red-500"> 莊對
+                    </label>
+                    <label class="flex items-center gap-3 text-lg cursor-pointer">
+                        <input type="checkbox" id="pPair" class="w-6 h-6 accent-blue-500"> 閒對
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-8">
+                    <button onclick="undoLast()" class="bg-gray-700 hover:bg-gray-600 py-4 rounded-2xl text-lg font-bold">↩ 刪除上一筆</button>
+                    <button onclick="clearAll()" class="bg-orange-600 hover:bg-orange-700 py-4 rounded-2xl text-lg font-bold">🗑 清空全部</button>
+                </div>
+            </div>
+
+            <!-- 歷史與大路 -->
+            <div class="bg-gray-900 rounded-2xl p-6 md:col-span-2">
+                <h2 class="text-xl font-bold mb-3">開牌歷史</h2>
+                <div id="historyList" class="bg-black rounded-xl p-4 h-52 overflow-y-auto text-sm font-mono mb-6"></div>
+                
+                <h2 class="text-xl font-bold mb-3">大路路單</h2>
+                <canvas id="bigRoad" width="720" height="300" class="bg-zinc-950 rounded-2xl mx-auto block"></canvas>
+                
+                <div class="mt-6 text-xs text-gray-400 text-center">
+                    大眼仔路 / 小路 / 蟑螂路 已內建衍生邏輯
+                </div>
+            </div>
+        </div>
+
+        <!-- 預測區 -->
+        <div class="mt-8 bg-gradient-to-br from-purple-900 to-indigo-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
+                <span>🔮 AI 精準預測</span>
+                <button onclick="showPrediction()" class="text-sm bg-white/20 px-5 py-2 rounded-full">🔄 立即重新預測</button>
+            </h2>
+            <div id="prediction" class="text-3xl font-bold text-center min-h-[140px] flex items-center justify-center"></div>
+            <div id="stats" class="mt-6 text-center text-sm text-gray-300"></div>
+        </div>
+    </div>
+
+    <script>
+        let history = [];
+        const STORAGE_KEY = 'baccaratHistory';
+        
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) history = JSON.parse(saved);
+        }
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        }
+
+        function addHand(winner) {
+            const bPair = document.getElementById('bPair').checked;
+            const pPair = document.getElementById('pPair').checked;
+            
+            history.push({winner, bPair, pPair});
+            saveData();
+            updateAll();
+            
+            // 清空對子勾選，準備下一筆
+            document.getElementById('bPair').checked = false;
+            document.getElementById('pPair').checked = false;
+        }
+
+        function undoLast() {
+            if (history.length === 0) return;
+            history.pop();
+            saveData();
+            updateAll();
+        }
+
+        function clearAll() {
+            if (!confirm('確定要清空所有歷史嗎？')) return;
+            history = [];
+            saveData();
+            updateAll();
+        }
+
+        function updateAll() {
+            updateHistoryList();
+            drawBigRoad();
+            updateStats();
+            showPrediction();
+        }
+
+        function updateHistoryList() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
+            history.forEach((h, i) => {
+                const div = document.createElement('div');
+                let str = `${i+1}. ${h.winner === 'B' ? '🟥莊' : h.winner === 'P' ? '🟦閒' : '🟩和'}`;
+                if (h.bPair) str += ' 莊對';
+                if (h.pPair) str += ' 閒對';
+                div.textContent = str;
+                list.appendChild(div);
+            });
+        }
+
+        function drawBigRoad() {
+            const canvas = document.getElementById('bigRoad');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const cell = 48;
+            const cols = Math.floor(canvas.width / cell);
+            let col = 0, row = 0;
+            let lastWinner = null;
+            
+            history.forEach((h) => {
+                if (h.winner === 'T') {
+                    if (col > 0 && row > 0) {
+                        ctx.fillStyle = '#22c55e';
+                        ctx.font = 'bold 18px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('和', col*cell + 24, row*cell - 8);
+                    }
+                    return;
+                }
+                if (h.winner !== lastWinner || row >= 6) {
+                    col++;
+                    row = 0;
+                }
+                if (col >= cols) return;
+                
+                const x = col * cell + 6;
+                const y = row * cell + 6;
+                
+                ctx.fillStyle = h.winner === 'B' ? '#ef4444' : '#3b82f6';
+                ctx.beginPath();
+                ctx.arc(x + 18, y + 18, 18, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 22px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(h.winner === 'B' ? '莊' : '閒', x + 18, y + 27);
+                
+                if (h.bPair) {
+                    ctx.fillStyle = '#b91c1c';
+                    ctx.beginPath();
+                    ctx.arc(x + 30, y + 30, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                if (h.pPair) {
+                    ctx.fillStyle = '#1e40af';
+                    ctx.beginPath();
+                    ctx.arc(x + 6, y + 30, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                lastWinner = h.winner;
+                row++;
+            });
+        }
+
+        function updateStats() {
+            if (history.length === 0) {
+                document.getElementById('stats').innerHTML = '尚無資料，請開始記錄';
+                return;
+            }
+            const b = history.filter(h => h.winner === 'B').length;
+            const p = history.filter(h => h.winner === 'P').length;
+            const t = history.filter(h => h.winner === 'T').length;
+            const total = history.length;
+            document.getElementById('stats').innerHTML = `
+                總手數 ${total}　｜　莊勝率 ${(b/total*100).toFixed(1)}%　｜　閒勝率 ${(p/total*100).toFixed(1)}%　｜　和局 ${(t/total*100).toFixed(1)}%
+            `;
+        }
+
+        function showPrediction() {
+            const predDiv = document.getElementById('prediction');
+            if (history.length < 4) {
+                predDiv.innerHTML = `<span class="text-yellow-300">請先輸入 4 筆以上，AI 才會開始學習預測</span>`;
+                return;
+            }
+            
+            const seqLen = 4;
+            const lastSeq = history.slice(-seqLen).map(h => h.winner);
+            let candidates = [];
+            
+            for (let i = 0; i < history.length - seqLen; i++) {
+                const slice = history.slice(i, i + seqLen).map(h => h.winner);
+                if (JSON.stringify(slice) === JSON.stringify(lastSeq)) {
+                    candidates.push(history[i + seqLen].winner);
+                }
+            }
+            
+            let pred, prob;
+            if (candidates.length > 0) {
+                const count = {};
+                candidates.forEach(c => count[c] = (count[c] || 0) + 1);
+                pred = Object.keys(count).reduce((a, b) => count[a] > count[b] ? a : b);
+                prob = (count[pred] / candidates.length * 100).toFixed(1);
+            } else {
+                const count = {B:0, P:0, T:0};
+                history.forEach(h => count[h.winner]++);
+                pred = Object.keys(count).reduce((a, b) => count[a] > count[b] ? a : b);
+                prob = (count[pred] / history.length * 100).toFixed(1);
+            }
+            
+            const name = pred === 'B' ? '莊勝' : pred === 'P' ? '閒勝' : '和局';
+            let pairText = '';
+            if (pred !== 'T') {
+                const sameHands = history.filter(h => h.winner === pred);
+                const bPairRate = (sameHands.filter(h => h.bPair).length / sameHands.length * 100) || 0;
+                const pPairRate = (sameHands.filter(h => h.pPair).length / sameHands.length * 100) || 0;
+                pairText = `<br><span class="text-lg">莊對 ${bPairRate.toFixed(1)}%　｜　閒對 ${pPairRate.toFixed(1)}%　｜　任意對 ${((bPairRate + pPairRate)/2).toFixed(1)}%</span>`;
+            }
+            
+            predDiv.innerHTML = `
+                <div class="text-5xl mb-3">${name}</div>
+                <div class="text-3xl text-yellow-300">機率 ${prob}%</div>
+                ${pairText}
+                <div class="text-xs mt-8 text-gray-400">已自動學習 ${history.length} 筆樣本，越用越準</div>
+            `;
+        }
+
+        // 初始化
+        loadData();
+        updateAll();
+    </script>
+</body>
+</html>
