@@ -23,18 +23,16 @@
             <div class="bg-gray-900 rounded-2xl p-6">
                 <h2 class="text-xl font-bold mb-4">點擊直接新增開牌</h2>
                 
-                <!-- 勝負按鈕 -->
                 <div class="grid grid-cols-3 gap-3 mb-6">
-                    <button onclick="addHand('B')" class="bg-red-600 hover:bg-red-700 active:bg-red-800 h-20 rounded-2xl text-3xl font-bold transition">莊</button>
-                    <button onclick="addHand('P')" class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 h-20 rounded-2xl text-3xl font-bold transition">閒</button>
-                    <button onclick="addHand('T')" class="bg-green-600 hover:bg-green-700 active:bg-green-800 h-20 rounded-2xl text-3xl font-bold transition">和</button>
+                    <button onclick="addHand('B')" class="bg-red-600 hover:bg-red-700 h-20 rounded-2xl text-3xl font-bold">莊</button>
+                    <button onclick="addHand('P')" class="bg-blue-600 hover:bg-blue-700 h-20 rounded-2xl text-3xl font-bold">閒</button>
+                    <button onclick="addHand('T')" class="bg-green-600 hover:bg-green-700 h-20 rounded-2xl text-3xl font-bold">和</button>
                 </div>
 
-                <!-- 對子按鈕（已改成可切換的大按鈕） -->
-                <h3 class="text-lg font-bold mb-3 text-gray-300">對子選擇（可開可關）</h3>
+                <h3 class="text-lg font-bold mb-3 text-gray-300">對子選擇</h3>
                 <div class="grid grid-cols-2 gap-3">
-                    <button id="bPairBtn" onclick="togglePair('B')" class="pair-btn bg-gray-700 hover:bg-gray-600 h-14 rounded-2xl text-xl font-bold">莊對</button>
-                    <button id="pPairBtn" onclick="togglePair('P')" class="pair-btn bg-gray-700 hover:bg-gray-600 h-14 rounded-2xl text-xl font-bold">閒對</button>
+                    <button id="bPairBtn" onclick="togglePair('B')" class="pair-btn bg-gray-700 hover:bg-gray-600 h-14 rounded-2xl text-xl">莊對</button>
+                    <button id="pPairBtn" onclick="togglePair('P')" class="pair-btn bg-gray-700 hover:bg-gray-600 h-14 rounded-2xl text-xl">閒對</button>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 mt-8">
@@ -50,20 +48,16 @@
                 
                 <h2 class="text-xl font-bold mb-3">大路路單</h2>
                 <canvas id="bigRoad" width="720" height="300" class="bg-zinc-950 rounded-2xl mx-auto block"></canvas>
-                
-                <div class="mt-6 text-xs text-gray-400 text-center">
-                    大眼仔路 / 小路 / 蟑螂路 已內建 • 進階預測模式
-                </div>
             </div>
         </div>
 
-        <!-- 進階預測區 -->
+        <!-- 預測區 -->
         <div class="mt-8 bg-gradient-to-br from-purple-900 to-indigo-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
-                <span>🔮 進階 AI 預測（20筆以上啟用）</span>
+                <span>🔮 進階 AI 預測（需20筆以上）</span>
                 <button onclick="showPrediction()" class="text-sm bg-white/20 px-5 py-2 rounded-full">🔄 重新計算</button>
             </h2>
-            <div id="prediction" class="text-center min-h-[200px]"></div>
+            <div id="prediction" class="text-center min-h-[180px]"></div>
         </div>
     </div>
 
@@ -72,7 +66,7 @@
         let bPairActive = false;
         let pPairActive = false;
         const STORAGE_KEY = 'baccaratHistory';
-        
+
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) history = JSON.parse(saved);
@@ -99,7 +93,7 @@
             saveData();
             updateAll();
             
-            // 新增後自動關閉對子（更符合實際玩法）
+            // 新增後自動關閉對子
             bPairActive = false;
             pPairActive = false;
             document.getElementById('bPairBtn').classList.remove('active');
@@ -184,16 +178,19 @@
         function showPrediction() {
             const predDiv = document.getElementById('prediction');
             if (history.length < 20) {
-                predDiv.innerHTML = `<span class="text-yellow-300 text-xl">需要累積 20 筆以上資料<br>目前只有 ${history.length} 筆</span>`;
+                predDiv.innerHTML = `<span class="text-yellow-300 text-xl">需要累積 20 筆以上資料<br>目前只有 ${history.length} 筆<br>繼續新增開牌即可啟用進階預測</span>`;
                 return;
             }
-            // （這裡保留你原本的進階預測邏輯不變）
+            
+            // 進階預測邏輯（已簡化確保不會出錯）
             const seqLen = 8;
             const lastSeq = history.slice(-seqLen).map(h => h.winner);
             let candidates = [];
             for (let i = 0; i < history.length - seqLen; i++) {
                 const slice = history.slice(i, i + seqLen).map(h => h.winner);
-                if (JSON.stringify(slice) === JSON.stringify(lastSeq)) candidates.push(history[i + seqLen].winner);
+                if (JSON.stringify(slice) === JSON.stringify(lastSeq)) {
+                    candidates.push(history[i + seqLen].winner);
+                }
             }
             let seqPred = 'T', seqProb = 33.3;
             if (candidates.length > 0) {
@@ -202,28 +199,43 @@
                 seqPred = Object.keys(count).reduce((a,b) => count[a] > count[b] ? a : b);
                 seqProb = (count[seqPred] / candidates.length * 100);
             }
+            
             const recent = history.slice(-10);
             const rb = recent.filter(h => h.winner === 'B').length;
             const rp = recent.filter(h => h.winner === 'P').length;
             const recentPred = rb > rp ? 'B' : rp > rb ? 'P' : 'T';
             const recentProb = Math.max(rb, rp) / 10 * 100;
+            
             const bHands = history.filter(h => h.winner === 'B');
             const pHands = history.filter(h => h.winner === 'P');
-            const bPairRate = bHands.length ? bHands.filter(h => h.bPair).length / bHands.length * 100 : 0;
-            const pPairRate = pHands.length ? pHands.filter(h => h.pPair).length / pHands.length * 100 : 0;
+            const bPairRate = bHands.length ? (bHands.filter(h => h.bPair).length / bHands.length * 100) : 0;
+            const pPairRate = pHands.length ? (pHands.filter(h => h.pPair).length / pHands.length * 100) : 0;
+            
             const totalB = history.filter(h => h.winner === 'B').length;
             const totalP = history.filter(h => h.winner === 'P').length;
             const overallPred = totalB > totalP ? 'B' : 'P';
-            let scoreB = 0, scoreP = 0, scoreT = 0;
-            if (seqPred === 'B') scoreB += seqProb * 0.5; else if (seqPred === 'P') scoreP += seqProb * 0.5; else scoreT += seqProb * 0.5;
-            if (recentPred === 'B') scoreB += recentProb * 0.3; else if (recentPred === 'P') scoreP += recentProb * 0.3;
-            if (overallPred === 'B') scoreB += 20; else scoreP += 20;
-            const finalPred = scoreB > scoreP ? 'B' : scoreP > scoreB ? 'P' : 'T';
-            const finalName = finalPred === 'B' ? '莊勝' : finalPred === 'P' ? '閒勝' : '和局';
-            let html = `
+            
+            let scoreB = (seqPred === 'B' ? seqProb * 0.5 : 0) + (recentPred === 'B' ? recentProb * 0.3 : 0) + (overallPred === 'B' ? 20 : 0);
+            let scoreP = (seqPred === 'P' ? seqProb * 0.5 : 0) + (recentPred === 'P' ? recentProb * 0.3 : 0) + (overallPred === 'P' ? 20 : 0);
+            
+            const finalPred = scoreB > scoreP ? 'B' : 'P';
+            const finalName = finalPred === 'B' ? '莊勝' : '閒勝';
+            
+            predDiv.innerHTML = `
                 <div class="text-5xl mb-2">${finalName}</div>
-                <div class="text-3xl text-yellow-300 mb-6">綜合推薦機率 ${Math.max(scoreB, scoreP, scoreT).toFixed(0)}%</div>
+                <div class="text-3xl text-yellow-300 mb-6">綜合推薦機率 ${Math.max(scoreB, scoreP).toFixed(0)}%</div>
                 <div class="grid grid-cols-1 gap-4 text-left max-w-md mx-auto">
-                    <div class="bg-white/10 p-4 rounded-2xl"><div class="font-bold">序列匹配（最後8筆）</div><div>${seqPred === 'B' ? '🟥莊勝' : seqPred === 'P' ? '🟦閒勝' : '🟩和局'} ${seqProb.toFixed(1)}% （${candidates.length} 次匹配）</div></div>
-                    <div class="bg-white/10 p-4 rounded-2xl"><div class="font-bold">近期趨勢（最後10筆）</div><div>${recentPred === 'B' ? '🟥莊勝' : recentPred === 'P' ? '🟦閒勝' : '🟩和局'} ${recentProb.toFixed(1)}%</div></div>
-                    <div class="bg-white/
+                    <div class="bg-white/10 p-4 rounded-2xl">序列匹配：${seqPred === 'B' ? '🟥莊勝' : '🟦閒勝'} ${seqProb.toFixed(1)}%</div>
+                    <div class="bg-white/10 p-4 rounded-2xl">近期趨勢：${recentPred === 'B' ? '🟥莊勝' : '🟦閒勝'} ${recentProb.toFixed(1)}%</div>
+                    <div class="bg-white/10 p-4 rounded-2xl">對子傾向：莊對 ${bPairRate.toFixed(1)}%　｜　閒對 ${pPairRate.toFixed(1)}%</div>
+                </div>
+                <div class="text-xs mt-6 text-gray-400">已學習 ${history.length} 筆 • 純本地運算</div>
+            `;
+        }
+
+        // 初始化
+        loadData();
+        updateAll();
+    </script>
+</body>
+</html>
