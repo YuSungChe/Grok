@@ -4,60 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>精準百家樂預測</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="manifest.json">
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        canvas { image-rendering: crisp-edges; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #111827; color: white; margin: 0; padding: 0; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; font-size: 2.5rem; color: #facc15; margin-bottom: 20px; }
+        .card { background: #1f2937; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+        button { 
+            width: 100%; padding: 18px; font-size: 1.5rem; font-weight: bold; 
+            border: none; border-radius: 12px; margin-bottom: 10px; 
+            transition: all 0.2s;
+        }
         button:active { transform: scale(0.95); }
-        .pair-btn { transition: all 0.2s; }
-        .pair-btn.active { background-color: #22c55e !important; color: white; font-weight: bold; }
+        .btn-b { background: #ef4444; }
+        .btn-p { background: #3b82f6; }
+        .btn-t { background: #22c55e; }
+        .pair-btn { background: #374151; font-size: 1.3rem; }
+        .pair-btn.active { background: #22c55e; color: white; }
+        .debug { font-size: 0.9rem; color: #9ca3af; margin-top: 15px; }
+        canvas { background: #27272a; border-radius: 12px; }
     </style>
 </head>
-<body class="bg-gray-950 text-white min-h-screen">
-    <div class="max-w-5xl mx-auto p-4">
-        <h1 class="text-4xl font-bold text-center py-6 text-yellow-400">精準百家樂預測</h1>
+<body>
+    <div class="container">
+        <h1>精準百家樂預測</h1>
         
-        <div class="grid md:grid-cols-3 gap-6">
+        <div class="grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
             <!-- 輸入區 -->
-            <div class="bg-gray-900 rounded-2xl p-6">
-                <h2 class="text-xl font-bold mb-4">點擊直接新增開牌</h2>
-                
-                <div class="grid grid-cols-3 gap-3 mb-6">
-                    <button onclick="addHand('B')" class="bg-red-600 hover:bg-red-700 h-20 rounded-2xl text-3xl font-bold">莊</button>
-                    <button onclick="addHand('P')" class="bg-blue-600 hover:bg-blue-700 h-20 rounded-2xl text-3xl font-bold">閒</button>
-                    <button onclick="addHand('T')" class="bg-green-600 hover:bg-green-700 h-20 rounded-2xl text-3xl font-bold">和</button>
-                </div>
+            <div class="card">
+                <h2 style="margin-bottom:15px;">點擊直接新增開牌</h2>
+                <button id="btnB" class="btn-b">莊</button>
+                <button id="btnP" class="btn-p">閒</button>
+                <button id="btnT" class="btn-t">和</button>
 
-                <h3 class="text-lg font-bold mb-3 text-gray-300">對子選擇</h3>
-                <div class="grid grid-cols-2 gap-3">
-                    <button id="bPairBtn" onclick="togglePair('B')" class="pair-btn bg-gray-700 hover:bg-gray-600 h-14 rounded-2xl text-xl">莊對</button>
-                    <button id="pPairBtn" onclick="togglePair('P')" class="pair-btn bg-gray-700 hover:bg-gray-600 h-14 rounded-2xl text-xl">閒對</button>
-                </div>
+                <h3 style="margin:20px 0 10px 0; font-size:1.1rem;">對子選擇</h3>
+                <button id="btnBP" class="pair-btn">莊對</button>
+                <button id="btnPP" class="pair-btn">閒對</button>
 
-                <div class="grid grid-cols-2 gap-3 mt-8">
-                    <button onclick="undoLast()" class="bg-gray-700 hover:bg-gray-600 py-4 rounded-2xl text-lg font-bold">↩ 刪除上一筆</button>
-                    <button onclick="clearAll()" class="bg-orange-600 hover:bg-orange-700 py-4 rounded-2xl text-lg font-bold">🗑 清空全部</button>
+                <div style="margin-top:25px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <button id="btnUndo" style="background:#4b5563;">↩ 刪除上一筆</button>
+                    <button id="btnClear" style="background:#f59e0b;">🗑 清空全部</button>
                 </div>
             </div>
 
             <!-- 歷史與大路 -->
-            <div class="bg-gray-900 rounded-2xl p-6 md:col-span-2">
-                <h2 class="text-xl font-bold mb-3">開牌歷史</h2>
-                <div id="historyList" class="bg-black rounded-xl p-4 h-52 overflow-y-auto text-sm font-mono mb-6"></div>
+            <div class="card">
+                <h2>開牌歷史</h2>
+                <div id="historyList" style="background:#111827; padding:15px; height:220px; overflow-y:auto; border-radius:12px; margin-bottom:20px; font-family:monospace;"></div>
                 
-                <h2 class="text-xl font-bold mb-3">大路路單</h2>
-                <canvas id="bigRoad" width="720" height="300" class="bg-zinc-950 rounded-2xl mx-auto block"></canvas>
+                <h2>大路路單</h2>
+                <canvas id="bigRoad" width="720" height="300"></canvas>
             </div>
         </div>
 
         <!-- 預測區 -->
-        <div class="mt-8 bg-gradient-to-br from-purple-900 to-indigo-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 flex items-center gap-3">
-                <span>🔮 進階 AI 預測（需20筆以上）</span>
-                <button onclick="showPrediction()" class="text-sm bg-white/20 px-5 py-2 rounded-full">🔄 重新計算</button>
-            </h2>
-            <div id="prediction" class="text-center min-h-[180px]"></div>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2>🔮 進階 AI 預測（20筆以上）</h2>
+                <button id="btnRecalc" style="background:#6366f1; padding:10px 20px; font-size:1rem; border-radius:9999px;">🔄 重新計算</button>
+            </div>
+            <div id="prediction" style="text-align:center; min-height:180px; font-size:1.4rem;"></div>
+            <div id="debug" class="debug"></div>
         </div>
     </div>
 
@@ -67,57 +73,12 @@
         let pPairActive = false;
         const STORAGE_KEY = 'baccaratHistory';
 
-        function loadData() {
+        function loadData() { 
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) history = JSON.parse(saved);
         }
-        function saveData() {
+        function saveData() { 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-        }
-
-        function togglePair(type) {
-            if (type === 'B') {
-                bPairActive = !bPairActive;
-                document.getElementById('bPairBtn').classList.toggle('active', bPairActive);
-            } else {
-                pPairActive = !pPairActive;
-                document.getElementById('pPairBtn').classList.toggle('active', pPairActive);
-            }
-        }
-
-        function addHand(winner) {
-            const bPair = (winner === 'B' || winner === 'P') ? bPairActive : false;
-            const pPair = (winner === 'B' || winner === 'P') ? pPairActive : false;
-            
-            history.push({winner, bPair, pPair});
-            saveData();
-            updateAll();
-            
-            // 新增後自動關閉對子
-            bPairActive = false;
-            pPairActive = false;
-            document.getElementById('bPairBtn').classList.remove('active');
-            document.getElementById('pPairBtn').classList.remove('active');
-        }
-
-        function undoLast() {
-            if (history.length === 0) return;
-            history.pop();
-            saveData();
-            updateAll();
-        }
-
-        function clearAll() {
-            if (!confirm('確定清空所有歷史？')) return;
-            history = [];
-            saveData();
-            updateAll();
-        }
-
-        function updateAll() {
-            updateHistoryList();
-            drawBigRoad();
-            showPrediction();
         }
 
         function updateHistoryList() {
@@ -164,12 +125,8 @@
                 ctx.font = 'bold 22px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText(h.winner === 'B' ? '莊' : '閒', x + 18, y + 27);
-                if (h.bPair) {
-                    ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.arc(x + 30, y + 30, 7, 0, Math.PI * 2); ctx.fill();
-                }
-                if (h.pPair) {
-                    ctx.fillStyle = '#1e40af'; ctx.beginPath(); ctx.arc(x + 6, y + 30, 7, 0, Math.PI * 2); ctx.fill();
-                }
+                if (h.bPair) { ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.arc(x + 30, y + 30, 7, 0, Math.PI * 2); ctx.fill(); }
+                if (h.pPair) { ctx.fillStyle = '#1e40af'; ctx.beginPath(); ctx.arc(x + 6, y + 30, 7, 0, Math.PI * 2); ctx.fill(); }
                 lastWinner = h.winner;
                 row++;
             });
@@ -177,65 +134,118 @@
 
         function showPrediction() {
             const predDiv = document.getElementById('prediction');
+            const debugDiv = document.getElementById('debug');
+            debugDiv.textContent = `正在計算... 目前資料筆數: ${history.length}`;
+            
             if (history.length < 20) {
-                predDiv.innerHTML = `<span class="text-yellow-300 text-xl">需要累積 20 筆以上資料<br>目前只有 ${history.length} 筆<br>繼續新增開牌即可啟用進階預測</span>`;
+                predDiv.innerHTML = `<span style="color:#fcd34d;">需要累積 20 筆以上資料<br>目前只有 ${history.length} 筆</span>`;
+                debugDiv.textContent = `計算完成（樣本不足）`;
                 return;
             }
             
-            // 進階預測邏輯（已簡化確保不會出錯）
+            // 進階計算
             const seqLen = 8;
             const lastSeq = history.slice(-seqLen).map(h => h.winner);
             let candidates = [];
             for (let i = 0; i < history.length - seqLen; i++) {
-                const slice = history.slice(i, i + seqLen).map(h => h.winner);
-                if (JSON.stringify(slice) === JSON.stringify(lastSeq)) {
+                if (JSON.stringify(history.slice(i, i+seqLen).map(h => h.winner)) === JSON.stringify(lastSeq)) {
                     candidates.push(history[i + seqLen].winner);
                 }
             }
-            let seqPred = 'T', seqProb = 33.3;
+            let seqPred = 'T', seqProb = 33;
             if (candidates.length > 0) {
                 const count = {B:0, P:0, T:0};
                 candidates.forEach(c => count[c]++);
                 seqPred = Object.keys(count).reduce((a,b) => count[a] > count[b] ? a : b);
-                seqProb = (count[seqPred] / candidates.length * 100);
+                seqProb = Math.round(count[seqPred] / candidates.length * 100);
             }
             
             const recent = history.slice(-10);
             const rb = recent.filter(h => h.winner === 'B').length;
             const rp = recent.filter(h => h.winner === 'P').length;
             const recentPred = rb > rp ? 'B' : rp > rb ? 'P' : 'T';
-            const recentProb = Math.max(rb, rp) / 10 * 100;
+            const recentProb = Math.round(Math.max(rb, rp) / 10 * 100);
             
-            const bHands = history.filter(h => h.winner === 'B');
-            const pHands = history.filter(h => h.winner === 'P');
-            const bPairRate = bHands.length ? (bHands.filter(h => h.bPair).length / bHands.length * 100) : 0;
-            const pPairRate = pHands.length ? (pHands.filter(h => h.pPair).length / pHands.length * 100) : 0;
-            
-            const totalB = history.filter(h => h.winner === 'B').length;
-            const totalP = history.filter(h => h.winner === 'P').length;
-            const overallPred = totalB > totalP ? 'B' : 'P';
-            
-            let scoreB = (seqPred === 'B' ? seqProb * 0.5 : 0) + (recentPred === 'B' ? recentProb * 0.3 : 0) + (overallPred === 'B' ? 20 : 0);
-            let scoreP = (seqPred === 'P' ? seqProb * 0.5 : 0) + (recentPred === 'P' ? recentProb * 0.3 : 0) + (overallPred === 'P' ? 20 : 0);
+            let scoreB = (seqPred === 'B' ? seqProb * 0.5 : 0) + (recentPred === 'B' ? recentProb * 0.3 : 0) + 20;
+            let scoreP = (seqPred === 'P' ? seqProb * 0.5 : 0) + (recentPred === 'P' ? recentProb * 0.3 : 0) + 20;
             
             const finalPred = scoreB > scoreP ? 'B' : 'P';
-            const finalName = finalPred === 'B' ? '莊勝' : '閒勝';
+            const finalName = finalPred === 'B' ? '🟥 莊勝' : '🟦 閒勝';
             
             predDiv.innerHTML = `
-                <div class="text-5xl mb-2">${finalName}</div>
-                <div class="text-3xl text-yellow-300 mb-6">綜合推薦機率 ${Math.max(scoreB, scoreP).toFixed(0)}%</div>
-                <div class="grid grid-cols-1 gap-4 text-left max-w-md mx-auto">
-                    <div class="bg-white/10 p-4 rounded-2xl">序列匹配：${seqPred === 'B' ? '🟥莊勝' : '🟦閒勝'} ${seqProb.toFixed(1)}%</div>
-                    <div class="bg-white/10 p-4 rounded-2xl">近期趨勢：${recentPred === 'B' ? '🟥莊勝' : '🟦閒勝'} ${recentProb.toFixed(1)}%</div>
-                    <div class="bg-white/10 p-4 rounded-2xl">對子傾向：莊對 ${bPairRate.toFixed(1)}%　｜　閒對 ${pPairRate.toFixed(1)}%</div>
+                <div style="font-size:2.8rem; margin-bottom:10px;">${finalName}</div>
+                <div style="font-size:1.8rem; color:#facc15;">綜合推薦機率 ${Math.max(scoreB, scoreP).toFixed(0)}%</div>
+                <div style="margin-top:20px; font-size:1rem; line-height:1.6;">
+                    序列匹配：${seqPred === 'B' ? '莊' : '閒'} ${seqProb}%<br>
+                    近期趨勢：${recentPred === 'B' ? '莊' : '閒'} ${recentProb}%<br>
+                    已學習 ${history.length} 筆資料
                 </div>
-                <div class="text-xs mt-6 text-gray-400">已學習 ${history.length} 筆 • 純本地運算</div>
             `;
+            debugDiv.textContent = `計算完成 ✅ 最後更新於 ${new Date().toLocaleTimeString('zh-TW')}`;
         }
 
-        // 初始化
+        function updateAll() {
+            updateHistoryList();
+            drawBigRoad();
+            showPrediction();
+        }
+
+        // 綁定所有按鈕（這是最穩定的方式）
+        function initButtons() {
+            document.getElementById('btnB').addEventListener('click', () => addHand('B'));
+            document.getElementById('btnP').addEventListener('click', () => addHand('P'));
+            document.getElementById('btnT').addEventListener('click', () => addHand('T'));
+            document.getElementById('btnBP').addEventListener('click', () => togglePair('B'));
+            document.getElementById('btnPP').addEventListener('click', () => togglePair('P'));
+            document.getElementById('btnUndo').addEventListener('click', undoLast);
+            document.getElementById('btnClear').addEventListener('click', clearAll);
+            document.getElementById('btnRecalc').addEventListener('click', showPrediction);
+        }
+
+        function addHand(winner) {
+            const bPair = (winner === 'B' || winner === 'P') ? bPairActive : false;
+            const pPair = (winner === 'B' || winner === 'P') ? pPairActive : false;
+            history.push({winner, bPair, pPair});
+            saveData();
+            updateAll();
+            bPairActive = false; pPairActive = false;
+            document.getElementById('btnBP').classList.remove('active');
+            document.getElementById('btnPP').classList.remove('active');
+        }
+
+        function togglePair(type) {
+            if (type === 'B') {
+                bPairActive = !bPairActive;
+                document.getElementById('btnBP').classList.toggle('active', bPairActive);
+            } else {
+                pPairActive = !pPairActive;
+                document.getElementById('btnPP').classList.toggle('active', pPairActive);
+            }
+        }
+
+        function undoLast() {
+            if (history.length === 0) return;
+            history.pop();
+            saveData();
+            updateAll();
+        }
+
+        function clearAll() {
+            if (!confirm('確定清空所有歷史？')) return;
+            history = [];
+            saveData();
+            updateAll();
+        }
+
+        // 啟動
         loadData();
+        initButtons();
         updateAll();
+        
+        // 顯示啟動成功
+        setTimeout(() => {
+            document.getElementById('debug').textContent = `程式已成功載入 ✅ 請測試所有按鈕`;
+        }, 500);
     </script>
 </body>
 </html>
