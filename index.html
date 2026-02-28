@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>精準百家樂預測 - 超複雜版</title>
+    <title>精準百家樂預測 - 超複雜版 v2</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #111827; color: white; margin: 0; padding: 0; }
         .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
@@ -26,7 +26,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>精準百家樂預測 - 超複雜版</h1>
+        <h1>精準百家樂預測 - 超複雜版 v2</h1>
         
         <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
             <!-- 輸入區 -->
@@ -71,6 +71,7 @@
         let history = [];
         let bPairActive = false;
         let pPairActive = false;
+        let pastPreds = [];  // 追蹤過去預測準率
         const STORAGE_KEY = 'baccaratHistory';
 
         function loadData() { 
@@ -143,21 +144,20 @@
                 return;
             }
             
-            // 超複雜算法
-            // 1. 馬可夫鏈: 狀態轉移概率
+            // 超複雜算法 (平衡權重, 準率接近50%)
+            // 馬可夫鏈
             const states = ['B', 'P', 'T'];
             const transMatrix = states.map(() => states.map(() => 0));
             for (let i = 1; i < history.length; i++) {
-                const prev = history[i-1].winner;
-                const curr = history[i].winner;
-                transMatrix[states.indexOf(prev)][states.indexOf(curr)]++;
+                const prev = states.indexOf(history[i-1].winner);
+                const curr = states.indexOf(history[i].winner);
+                transMatrix[prev][curr] += 1;
             }
-            const lastWinner = history[history.length-1].winner;
-            const lastIdx = states.indexOf(lastWinner);
-            const totalTrans = transMatrix[lastIdx].reduce((a, b) => a + b, 0);
-            const markovProb = transMatrix[lastIdx].map(count => totalTrans > 0 ? (count / totalTrans * 100) : 33.3);
+            const lastIdx = states.indexOf(history[history.length-1].winner);
+            const totalTrans = transMatrix[lastIdx].reduce((a, b) => a + b, 0) || 1;
+            const markovProb = transMatrix[lastIdx].map(count => (count / totalTrans * 100));
             
-            // 2. 多階序列匹配 (3~20筆，已改成20筆)
+            // 多階序列匹配
             let multiPred = {B:0, P:0, T:0};
             for (let len = 3; len <= 20; len++) {
                 if (history.length < len + 1) continue;
@@ -172,41 +172,53 @@
                     candidates.forEach(c => multiPred[c] += (1 / len) * candidates.length);
                 }
             }
-            const multiTotal = Object.values(multiPred).reduce((a, b) => a + b, 0);
-            const multiProb = Object.keys(multiPred).reduce((obj, key) => { obj[key] = multiTotal > 0 ? multiPred[key] / multiTotal * 100 : 33.3; return obj; }, {});
+            const multiTotal = Object.values(multiPred).reduce((a, b) => a + b, 0) || 1;
+            const multiProb = Object.keys(multiPred).reduce((obj, key) => { obj[key] = multiPred[key] / multiTotal * 100; return obj; }, {});
             
-            // 3. 對子權重 + 長龍偵測
+            // 對子 + 長龍
             const bPairRate = history.filter(h => h.bPair).length / history.length * 100;
             const pPairRate = history.filter(h => h.pPair).length / history.length * 100;
             let streak = 1;
-            for (let i = history.length - 1; i > 0; i--) {
-                if (history[i].winner === history[i-1].winner) streak++;
+            let streakDir = history[history.length-1].winner;
+            for (let i = history.length - 2; i >= 0; i--) {
+                if (history[i].winner === streakDir) streak++;
                 else break;
             }
-            const streakWeight = streak > 3 ? (streak / 10 * 20) : 0;  // 長龍加權
+            const streakWeight = (streak > 3) ? (streak / 10 * 10) : 0;  // 降低權重, 避免過度
             
-            // 綜合分數
-            let scoreB = markovProb[0] * 0.4 + multiProb.B * 0.4 + bPairRate * 0.1 + (history[history.length-1].winner === 'B' ? streakWeight : 0);
-            let scoreP = markovProb[1] * 0.4 + multiProb.P * 0.4 + pPairRate * 0.1 + (history[history.length-1].winner === 'P' ? streakWeight : 0);
-            let scoreT = markovProb[2] * 0.2 + multiProb.T * 0.2;
+            // 綜合分數 (平衡到50%)
+            let scoreB = markovProb[0] * 0.3 + multiProb.B * 0.3 + bPairRate * 0.05 + (streakDir === 'B' ? streakWeight : 0) + 20;  // 加基礎分平衡
+            let scoreP = markovProb[1] * 0.3 + multiProb.P * 0.3 + pPairRate * 0.05 + (streakDir === 'P' ? streakWeight : 0) + 20;
+            let scoreT = markovProb[2] * 0.2 + multiProb.T * 0.2 + 10;
             
             const maxScore = Math.max(scoreB, scoreP, scoreT);
-            const finalPred = scoreB === maxScore ? 'B' : scoreP === maxScore ? 'P' : 'T';
+            const finalPred = (scoreB === maxScore) ? 'B' : (scoreP === maxScore) ? 'P' : 'T';
             const finalName = finalPred === 'B' ? '🟥 莊勝' : finalPred === 'P' ? '🟦 閒勝' : '🟩 和局';
-            const estAcc = 50 + (maxScore / 2 - 50);  // 估計準率 (接近50%)
-            const risk = maxScore < 60 ? '高風險 (隨機性大)' : '中風險 (可試)';
+            const estAcc = 50 + ((maxScore - 50) / 2);  // 強制接近50%
+            const risk = maxScore < 60 ? '高風險 - 建議停手' : '中風險 - 小額試試';
+            
+            // 歷史準率追蹤
+            if (pastPreds.length > 0) {
+                const lastPred = pastPreds[pastPreds.length-1];
+                const actual = history[history.length-1].winner;
+                if (lastPred === actual) {
+                    // 記錄準
+                }
+            }
+            pastPreds.push(finalPred);
+            const histAcc = pastPreds.length > 1 ? (pastPreds.slice(0,-1).filter((p, i) => p === history[i+1].winner).length / (pastPreds.length-1) * 100) : 50;
             
             predDiv.innerHTML = `
                 <div style="font-size:2.8rem; margin-bottom:10px;">${finalName}</div>
-                <div style="font-size:1.8rem; color:#facc15;">估計準率 ${estAcc.toFixed(1)}%</div>
+                <div style="font-size:1.8rem; color:#facc15;">估計準率 ~${estAcc.toFixed(1)}%</div>
                 <div style="margin-top:20px; font-size:1rem; line-height:1.6;">
                     馬可夫概率：莊 ${markovProb[0].toFixed(1)}% | 閒 ${markovProb[1].toFixed(1)}% | 和 ${markovProb[2].toFixed(1)}%<br>
                     多階序列：莊 ${multiProb.B.toFixed(1)}% | 閒 ${multiProb.P.toFixed(1)}% | 和 ${multiProb.T.toFixed(1)}%<br>
                     對子率：莊對 ${bPairRate.toFixed(1)}% | 閒對 ${pPairRate.toFixed(1)}%<br>
-                    長龍偵測：目前連勝 ${streak} 局<br>
-                    風險評級：${risk} (建議下注小額)
+                    長龍偵測：目前連勝 ${streak} 局 (${streak > 4 ? '建議反向' : '可跟' })<br>
+                    風險評級：${risk}
                 </div>
-                <div style="margin-top:10px; font-size:0.9rem; color:#9ca3af;">已學習 ${history.length} 筆 • 記住，這只是估計，長期準率~50%</div>
+                <div style="margin-top:10px; font-size:0.9rem; color:#9ca3af;">歷史預測準率 ${histAcc.toFixed(1)}% • 長期~50% • 已學習 ${history.length} 筆</div>
             `;
             debugDiv.textContent = `計算完成 ✅ 時間: ${new Date().toLocaleTimeString('zh-TW')}`;
         }
@@ -260,6 +272,7 @@
         function clearAll() {
             if (!confirm('確定清空所有歷史？')) return;
             history = [];
+            pastPreds = [];
             saveData();
             updateAll();
         }
