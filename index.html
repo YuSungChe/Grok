@@ -91,58 +91,46 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const cell = 48;
             const visibleCols = Math.floor(canvas.width / cell);  // 畫布可顯示的欄數，約15欄
-            let currentCol = 0, row = 0, lastWinner = null;
+            let columns = [];  // 儲存所有欄的資料
             
-            // 先計算總欄位數
-            let totalCols = 0;
-            let tempLastWinner = null;
-            let tempRow = 0;
-            history.forEach(h => {
-                if (h.winner === 'T') return;
-                if (tempLastWinner !== h.winner || tempRow >= 6) {
-                    totalCols++;
-                    tempRow = 0;
-                }
-                tempLastWinner = h.winner;
-                tempRow++;
-            });
-
-            // 計算起始欄位（只顯示最後 visibleCols 欄）
-            const startCol = Math.max(0, totalCols - visibleCols);
-            
-            // 重置並只畫從 startCol 開始的欄
-            tempLastWinner = null;
-            tempRow = 0;
-            let colIndex = 0;  // 總欄索引
+            // 建構欄位結構
+            let currentCol = [];
             history.forEach(h => {
                 if (h.winner === 'T') {
-                    if (colIndex >= startCol && colIndex < startCol + visibleCols) {
-                        ctx.fillStyle = '#22c55e';
-                        ctx.font = 'bold 16px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('和', (colIndex - startCol)*cell + 24, tempRow*cell + 55);
+                    if (currentCol.length > 0) {
+                        currentCol[currentCol.length - 1].tie = (currentCol[currentCol.length - 1].tie || 0) + 1;
                     }
                     return;
                 }
-                if (tempLastWinner !== h.winner || tempRow >= 6) {
-                    colIndex++;
-                    tempRow = 0;
+                if (currentCol.length > 0 && currentCol[currentCol.length - 1].winner === h.winner && currentCol.length < 6) {
+                    currentCol.push({winner: h.winner, tie: 0});
+                } else {
+                    columns.push(currentCol);
+                    currentCol = [{winner: h.winner, tie: 0}];
                 }
-                if (colIndex < startCol || colIndex >= startCol + visibleCols) {
-                    tempLastWinner = h.winner;
-                    tempRow++;
-                    return;
-                }
-                const x = (colIndex - startCol) * cell + 6;
-                const y = tempRow * cell + 6;
-                ctx.fillStyle = h.winner === 'B' ? '#ef4444' : '#3b82f6';
-                ctx.beginPath(); ctx.arc(x + 18, y + 18, 18, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 22px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(h.winner === 'B' ? '莊' : '閒', x + 18, y + 27);
-                tempLastWinner = h.winner;
-                tempRow++;
+            });
+            if (currentCol.length > 0) columns.push(currentCol);
+            
+            // 計算起始欄位（顯示最後 visibleCols 欄）
+            const startCol = Math.max(0, columns.length - visibleCols);
+            
+            // 畫圖
+            columns.slice(startCol).forEach((col, colIdx) => {
+                col.forEach((bead, rowIdx) => {
+                    const x = colIdx * cell + 6;
+                    const y = rowIdx * cell + 6;
+                    ctx.fillStyle = bead.winner === 'B' ? '#ef4444' : '#3b82f6';
+                    ctx.beginPath(); ctx.arc(x + 18, y + 18, 18, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 22px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(bead.winner === 'B' ? '莊' : '閒', x + 18, y + 27);
+                    if (bead.tie > 0) {
+                        ctx.fillStyle = '#22c55e';
+                        ctx.font = 'bold 16px Arial';
+                        ctx.fillText(bead.tie > 1 ? bead.tie : '和', x + 18, y + 42);
+                    }
+                });
             });
         }
 
