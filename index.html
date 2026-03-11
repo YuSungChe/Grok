@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>精準百家樂預測 - 超複雜版 v2</title>
+    <title>精準百家樂預測 - 超複雜版 v2 (單桌版)</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #111827; color: white; margin: 0; padding: 0; }
         .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
@@ -24,10 +24,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>精準百家樂預測 - 超複雜版 v2</h1>
+        <h1>精準百家樂預測 - 超複雜版 v2 (單桌版)</h1>
         
         <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
-            <!-- 輸入區（已移除對子） -->
+            <!-- 輸入區 -->
             <div class="card">
                 <h2 style="margin-bottom:15px;">點擊直接新增開牌</h2>
                 <button id="btnB" class="btn-b">莊</button>
@@ -90,34 +90,59 @@
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const cell = 48;
-            const maxCols = Math.floor(canvas.width / cell);
-            let col = -1, row = 0, lastWinner = null;
+            const visibleCols = Math.floor(canvas.width / cell);  // 畫布可顯示的欄數，約15欄
+            let currentCol = 0, row = 0, lastWinner = null;
             
+            // 先計算總欄位數
+            let totalCols = 0;
+            let tempLastWinner = null;
+            let tempRow = 0;
+            history.forEach(h => {
+                if (h.winner === 'T') return;
+                if (tempLastWinner !== h.winner || tempRow >= 6) {
+                    totalCols++;
+                    tempRow = 0;
+                }
+                tempLastWinner = h.winner;
+                tempRow++;
+            });
+
+            // 計算起始欄位（只顯示最後 visibleCols 欄）
+            const startCol = Math.max(0, totalCols - visibleCols);
+            
+            // 重置並只畫從 startCol 開始的欄
+            tempLastWinner = null;
+            tempRow = 0;
+            let colIndex = 0;  // 總欄索引
             history.forEach(h => {
                 if (h.winner === 'T') {
-                    if (col >= 0) {
+                    if (colIndex >= startCol && colIndex < startCol + visibleCols) {
                         ctx.fillStyle = '#22c55e';
                         ctx.font = 'bold 16px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText('和', col*cell + 24, row*cell + 55);
+                        ctx.fillText('和', (colIndex - startCol)*cell + 24, tempRow*cell + 55);
                     }
                     return;
                 }
-                if (lastWinner === null || h.winner !== lastWinner || row >= 6) {
-                    col++;
-                    row = 0;
+                if (tempLastWinner !== h.winner || tempRow >= 6) {
+                    colIndex++;
+                    tempRow = 0;
                 }
-                if (col >= maxCols) return;
-                const x = col * cell + 6;
-                const y = row * cell + 6;
+                if (colIndex < startCol || colIndex >= startCol + visibleCols) {
+                    tempLastWinner = h.winner;
+                    tempRow++;
+                    return;
+                }
+                const x = (colIndex - startCol) * cell + 6;
+                const y = tempRow * cell + 6;
                 ctx.fillStyle = h.winner === 'B' ? '#ef4444' : '#3b82f6';
                 ctx.beginPath(); ctx.arc(x + 18, y + 18, 18, 0, Math.PI * 2); ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = 'bold 22px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText(h.winner === 'B' ? '莊' : '閒', x + 18, y + 27);
-                lastWinner = h.winner;
-                row++;
+                tempLastWinner = h.winner;
+                tempRow++;
             });
         }
 
@@ -228,10 +253,6 @@
             history.push({winner});
             saveData();
             updateAll();
-        }
-
-        function togglePair(type) {
-            // 已移除對子功能
         }
 
         function undoLast() {
